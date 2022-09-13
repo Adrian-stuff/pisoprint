@@ -1,67 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Piso print</title>
-    <script src="../js/jszip.min.js"></script>
-    <script src="../js/docx-preview.min.js"></script>
-    <script src="../js/jquery-3.6.0.js"></script>
-    <!-- <script src="../js/jquery-3.6.0.min.js"></script> -->
-  </head>
-  <body>
-    <input
-      type="file"
-      id="file-input"
-      accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf"
-    />
-    <button id="load">load</button>
-    <button id="upload">upload</button>
-    <button id="print">print</button>
-    <!-- <div id="doc-preview"></div> -->
-    <script>
-      let docData;
-      fetch("/id")
-        .then((res) => res.json())
-        .then((res) => console.log(res));
-      fetch("/get-printers")
-        .then((res) => res.json())
-        .then((res) => console.log(res))
-        .catch((e) => console.log(e));
-      $("#file-input").on("change", (e) => {
-        docData = e.target.files[0];
-        console.log(e.target.files);
-      });
-      $("#print").click(() => {
-        fetch("/print", { method: "POST" });
-      });
-      $("#upload").click(() => {
-        let formData = new FormData();
-        formData.append("doc-file", docData);
-        $.ajax({
-          url: "/upload",
-          type: "POST",
-          processData: false,
-          contentType: false,
-          cache: false,
-          data: formData,
-          success: function () {
-            alert("success?");
-          },
-        });
-      });
 
-      $("#load").click(function (e) {
-        docData = $("#file-input")[0].files[0];
-        console.log(docData);
-        load();
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Piso print</title>
+  <script src="../js/jszip.min.js"></script>
+  <script src="../js/docx-preview.min.js"></script>
+  <script src="../js/jquery-3.6.0.js"></script>
+  <script src="https://cdnjs.com/libraries/pdf.js"></script>
+  <!-- <script src="../js/jquery-3.6.0.min.js"></script> -->
+</head>
+
+<body>
+  <input type="file" id="file-input"
+    accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf" />
+  <button id="load">load</button>
+  <button id="upload">upload</button>
+  <button id="print">print</button>
+  <!-- <div id="doc-preview"></div> -->
+  <object data="/pdf" width="500" type='application/pdf' height="700"></object>
+  <script>
+    let docData;
+    fetch("/id")
+      .then((res) => res.json())
+      .then((res) => console.log(res));
+    fetch("/get-printers")
+      .then((res) => res.json())
+      .then((res) => console.log(res))
+      .catch((e) => console.log(e));
+    $("#file-input").on("change", (e) => {
+      docData = e.target.files[0];
+      console.log(e.target.files);
+    });
+    $("#print").click(() => {
+      fetch("/print", { method: "POST" });
+    });
+    $("#upload").click(() => {
+      let formData = new FormData();
+      formData.append("doc-file", docData);
+      $.ajax({
+        url: "/upload",
+        type: "POST",
+        processData: false,
+        contentType: false,
+        cache: false,
+        data: formData,
+        success: function (data) {
+          console.log(data)
+        },
       });
-      function load() {
-        docx
-          .renderAsync(docData, document.getElementById("doc-preview"))
-          .then((x) => console.log("finished"));
-      }
-    </script>
-  </body>
+    });
+
+    $("#load").click(function (e) {
+      docData = $("#file-input")[0].files[0];
+      console.log(docData);
+      load();
+    });
+    function load() {
+      docx
+        .renderAsync(docData, document.getElementById("doc-preview"))
+        .then((x) => console.log("finished"));
+    }
+  </script>
+</body>
+
 </html>

@@ -15,8 +15,12 @@ import { exec } from "child_process";
 import { getDefaultPrinter, getPrinters, print } from "unix-print";
 
 import crypto from "crypto";
+import Printer from "./printer";
+import { convertToPdf, deleteFile } from "./utils";
+import send from "koa-send";
 const app = new Koa();
 const router = new Router();
+const printer = new Printer();
 
 app.keys = ["idk what todo"];
 
@@ -43,35 +47,21 @@ const upload = multer({
   },
 });
 
-function convertToPdf(filePath: string) {
-  return new Promise<string>((resolve, reject) =>
-    exec(
-      `unoconvert --convert-to pdf ${filePath} ${filePath}.pdf`,
-      (err, stdout, stderr) => {
-        if (err) {
-          // node couldn't execute the command
-          console.log(err);
-          reject(err);
-          return;
-        }
-        resolve(`${filePath}.pdf`);
-        // the *entire* stdout and stderr (buffered)
-        console.log(`stdout: ${stdout}`);
-        console.log(`stderr: ${stderr}`);
-      }
-    )
-  );
-}
-
 router.get("/get-printers", async (ctx) => {
-  const printers = await getPrinters();
+  const printers = await printer.getPrinters();
   ctx.body = { printers: printers };
 });
 
-router.get("/get-default-printer", (ctx) => {
-  getDefaultPrinter().then((printer: any) => {
-    ctx.body = { printer };
-  });
+router.post("/set-default-printer", async (ctx) => {
+  const printer = ctx.request.body.printer;
+  console.log(printer);
+  printer.setDefaultPrinter(printer);
+  ctx.body = { success: true };
+});
+
+router.get("/get-default-printer", async (ctx) => {
+  const defaultPrinter = await printer.getDefaultPrinter();
+  ctx.body = { defaultPrinter };
 });
 
 router.post("/print", (ctx) => {
@@ -82,9 +72,10 @@ router.post("/print", (ctx) => {
     ctx.session?.lastUploadFile.path
   );
   console.log(filePath);
-  convertToPdf(filePath).then((convertedFile) => {
-    print(convertedFile).catch((e) => console.log(e));
-  });
+  // TODO:
+  // convertToPdf(filePath).then((convertedFile) => {
+  //   print(convertedFile).catch((e) => console.log(e));
+  // });
   //TODO: implement converting to pdf
   // docxConverter(filePath, filePath + ".pdf", (err: any, res: any) => {
   //   if (err) console.log(err);
@@ -94,11 +85,31 @@ router.post("/print", (ctx) => {
 });
 
 router.post("/upload", upload.single("doc-file"), (ctx) => {
-  console.log("ctx.request.file", ctx.request.file);
   console.log("ctx.file", ctx.file);
+  const filePath = path.join(__dirname.replace("/dist", ""), ctx.file.path);
+  if (ctx.session!.lastUploadFile !== undefined) {
+    console.log("deleting", ctx.session!.lastUploadFile.path);
+    deleteFile(ctx.session!.lastUploadFile.path).catch((e) => {
+      console.log(e);
+    });
+    deleteFile(ctx.session!.lastUploadFile.path + ".pdf").catch((e) => {
+      console.log(e);
+    });
+  }
+  let pdf = ctx.file.filename;
+  if (ctx.file.mimetype !== "application/pdf") {
+    console.log("converting...");
+    convertToPdf(filePath);
+    pdf = ctx.file.filename + ".pdf";
+  }
   // console.log("ctx.request.body", ctx.request.body);
   ctx.session!.lastUploadFile = ctx.file;
-  ctx.body = "done";
+  ctx.session!.pdfFile = pdf;
+  ctx.body = { pdfUrl: `/pdf/${pdf}`, success: true };
+});
+
+router.get("/pdf", async (ctx) => {
+  await send(ctx, "dist/uploads/" + ctx.session!.pdfFile);
 });
 
 router.get("/id", (ctx, next) => {
@@ -119,6 +130,7 @@ app.use(async (ctx, next) => {
 
 app
   .use(serve(path.join(__dirname, "/public")))
+
   .use(router.routes())
   .use(router.allowedMethods());
 
