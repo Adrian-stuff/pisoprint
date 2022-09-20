@@ -18,10 +18,21 @@ import crypto from "crypto";
 import Printer from "./printer";
 import { convertToPdf, deleteFile, getPdfData } from "./utils";
 import send from "koa-send";
+import { createServer } from "http";
+import { Server } from "socket.io";
 const app = new Koa();
 const router = new Router();
 const printer = new Printer();
+type ServerState = { isPrinting: boolean; waitingForCash: boolean };
+const serverState: ServerState = { isPrinting: false, waitingForCash: false };
+const httpServer = createServer(app.callback());
+const io = new Server(httpServer, {
+  /* options */
+});
 
+io.on("connection", (socket) => {
+  // ...
+});
 app.keys = ["idk what todo"];
 
 app.use(session(app));
@@ -41,7 +52,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     let ext = path.extname(file.originalname);
     if (ext !== ".docx" && ext !== ".doc" && ext !== ".pdf") {
-      return cb(new Error("Only docx are allowed"), false);
+      return cb(new Error("Only docx,doc,pdf are allowed"), false);
     }
     cb(null, true);
   },
@@ -74,9 +85,17 @@ router.post("/print", (ctx) => {
   let options: string[] = [];
   // TODO: implement printing options
   console.log(filePath);
-  printer.print("dist/uploads/" + ctx.session!.pdfFile, options);
+  printer
+    .print("dist/uploads/" + ctx.session!.pdfFile, options)
+    .then(() => {
+      ctx.session!.isDonePrinting = true;
+      ctx.body = { success: true, message: "printing..." };
+    })
+    .catch((e) => {
+      console.log(e);
+      ctx.body = { success: false, message: "printing..." };
+    });
   // TODO: implement deleting files
-  ctx.body = "printing...";
 });
 
 router.post("/upload", upload.single("doc-file"), async (ctx) => {
@@ -101,7 +120,12 @@ router.post("/upload", upload.single("doc-file"), async (ctx) => {
       pdf = ctx.file.filename + ".pdf";
     })
     .catch((e) => {
-      ctx.body = { pdfUrl: undefined, pdfPages: undefined, success: false };
+      ctx.body = {
+        pdfUrl: undefined,
+        pdfPages: undefined,
+        success: false,
+        error: e.toString(),
+      };
       return;
     });
 
@@ -113,6 +137,7 @@ router.post("/upload", upload.single("doc-file"), async (ctx) => {
   // console.log("ctx.request.body", ctx.request.body);
   ctx.session!.lastUploadFile = ctx.file;
   ctx.session!.pdfFile = pdf;
+  ctx.session!.isDonePrinting = false;
 
   ctx.body = { pdfUrl: `/pdf/${pdf}`, pdfPages: pages, success: true };
 });

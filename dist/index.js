@@ -27,9 +27,19 @@ const crypto_1 = __importDefault(require("crypto"));
 const printer_1 = __importDefault(require("./printer"));
 const utils_1 = require("./utils");
 const koa_send_1 = __importDefault(require("koa-send"));
+const http_1 = require("http");
+const socket_io_1 = require("socket.io");
 const app = new koa_1.default();
 const router = new router_1.default();
 const printer = new printer_1.default();
+const serverState = { isPrinting: false, waitingForCash: false };
+const httpServer = (0, http_1.createServer)(app.callback());
+const io = new socket_io_1.Server(httpServer, {
+/* options */
+});
+io.on("connection", (socket) => {
+    // ...
+});
 app.keys = ["idk what todo"];
 app.use((0, koa_session_1.default)(app));
 const storage = multer_1.default.diskStorage({
@@ -47,7 +57,7 @@ const upload = (0, multer_1.default)({
     fileFilter: (req, file, cb) => {
         let ext = path_1.default.extname(file.originalname);
         if (ext !== ".docx" && ext !== ".doc" && ext !== ".pdf") {
-            return cb(new Error("Only docx are allowed"), false);
+            return cb(new Error("Only docx,doc,pdf are allowed"), false);
         }
         cb(null, true);
     },
@@ -74,9 +84,17 @@ router.post("/print", (ctx) => {
     let options = [];
     // TODO: implement printing options
     console.log(filePath);
-    printer.print("dist/uploads/" + ctx.session.pdfFile, options);
+    printer
+        .print("dist/uploads/" + ctx.session.pdfFile, options)
+        .then(() => {
+        ctx.session.isDonePrinting = true;
+        ctx.body = { success: true, message: "printing..." };
+    })
+        .catch((e) => {
+        console.log(e);
+        ctx.body = { success: false, message: "printing..." };
+    });
     // TODO: implement deleting files
-    ctx.body = "printing...";
 });
 router.post("/upload", upload.single("doc-file"), (ctx) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("ctx.file", ctx.file);
@@ -98,7 +116,12 @@ router.post("/upload", upload.single("doc-file"), (ctx) => __awaiter(void 0, voi
         pdf = ctx.file.filename + ".pdf";
     })
         .catch((e) => {
-        ctx.body = { pdfUrl: undefined, pdfPages: undefined, success: false };
+        ctx.body = {
+            pdfUrl: undefined,
+            pdfPages: undefined,
+            success: false,
+            error: e.toString(),
+        };
         return;
     });
     let data = yield (0, utils_1.getPdfData)(path_1.default.join(__dirname, "uploads/" + pdf));
@@ -108,6 +131,7 @@ router.post("/upload", upload.single("doc-file"), (ctx) => __awaiter(void 0, voi
     // console.log("ctx.request.body", ctx.request.body);
     ctx.session.lastUploadFile = ctx.file;
     ctx.session.pdfFile = pdf;
+    ctx.session.isDonePrinting = false;
     ctx.body = { pdfUrl: `/pdf/${pdf}`, pdfPages: pages, success: true };
 }));
 router.get("/pdf", (ctx) => __awaiter(void 0, void 0, void 0, function* () {

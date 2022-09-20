@@ -10,59 +10,91 @@
   <script src="../js/docx-preview.min.js"></script>
   <script src="../js/jquery-3.6.0.js"></script>
   <script src="https://cdnjs.com/libraries/pdf.js"></script>
+  <script src="./js/socketio-file-upload/client.js"></script>
   <!-- <script src="../js/jquery-3.6.0.min.js"></script> -->
 </head>
 
 <body>
   <input type="file" id="file-input"
     accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf" />
-  <button id="load">load</button>
+
   <button id="upload">upload</button>
   <button id="print">print</button>
   <!-- <div id="doc-preview"></div> -->
   <object data="/pdf" width="500" type='application/pdf' height="700"></object>
+
+
+  <script type="module">
+    import { io } from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+
+    const socket = io("");
+    const uploader = new SocketIOFileUpload(socket);
+    // uploader.listenOnSubmit(document.getElementById("upload"), document.getElementById("file-input"));
+    const renameFile = (originalFile, newName) => { return new File([originalFile], newName, { type: originalFile.type, lastModified: originalFile.lastModified, }); };
+
+    $("#file-input").on("change", (e) => {
+      const file = renameFile(e.target.files[0], `${Date.now()}.${e.target.files[0].name.split('.').pop()}`)
+      $("#upload").on("click", (e) => {
+        if (file) {
+          console.log("click", file)
+          uploader.submitFiles([file])
+        }
+        $("#file-input").val = null
+      })
+      console.log(`${Date.now()}.${e.target.files[0].name.split('.').pop()}`)
+    })
+
+
+
+    uploader.addEventListener("progress", (e) => {
+      const percent = e.bytesLoaded / e.file.size * 100;
+      console.log("File is", percent.toFixed(2), "percent loaded");
+    })
+    uploader.addEventListener("complete", (e) => {
+      console.log({ file: e.file, sucess: e.success })
+    })
+    socket.on("connect", () => {
+      console.log("connected")
+    })
+
+    socket.on("pdfInfo", (e) => {
+      console.log(e)
+    })
+
+    socket.on("waitingForCoins", (e) => {
+      console.log("waiting for coins")
+    })
+
+  </script>
   <script>
-    let docData;
-    fetch("/id")
-      .then((res) => res.json())
-      .then((res) => console.log(res));
     fetch("/get-printers")
       .then((res) => res.json())
       .then((res) => console.log(res))
       .catch((e) => console.log(e));
-    $("#file-input").on("change", (e) => {
-      docData = e.target.files[0];
-      console.log(e.target.files);
-    });
-    $("#print").click(() => {
-      fetch("/print", { method: "POST" });
-    });
-    $("#upload").click(() => {
-      let formData = new FormData();
-      formData.append("doc-file", docData);
-      $.ajax({
-        url: "/upload",
-        type: "POST",
-        processData: false,
-        contentType: false,
-        cache: false,
-        data: formData,
-        success: function (data) {
-          console.log(data)
-        },
-      });
-    });
+    // $("#file-input").on("change", (e) => {
+    //   e.target.files[0];
+    //   console.log(e.target.files);
+    // });
+    // $("#print").click(() => {
+    //   fetch("/print", { method: "POST" }).then((res) => res.json()).then(res => console.log(res));
+    // });
+    // $("#upload").click(() => {
+    //   let formData = new FormData();
+    //   formData.append("doc-file", docData);
+    //   $.ajax({
+    //     url: "/upload",
+    //     type: "POST",
+    //     processData: false,
+    //     contentType: false,
+    //     cache: false,
+    //     data: formData,
+    //     success: function (data) {
+    //       console.log(data)
+    //     },
+    //   });
+    // });
 
-    $("#load").click(function (e) {
-      docData = $("#file-input")[0].files[0];
-      console.log(docData);
-      load();
-    });
-    function load() {
-      docx
-        .renderAsync(docData, document.getElementById("doc-preview"))
-        .then((x) => console.log("finished"));
-    }
+
   </script>
 </body>
 
