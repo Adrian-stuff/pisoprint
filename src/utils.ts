@@ -1,6 +1,8 @@
 import { exec } from "child_process";
 import { unlink } from "fs/promises";
+import { readFileSync } from "fs";
 
+import pdf from "pdf-page-counter";
 async function deleteFile(filePath: string) {
   await unlink(filePath);
 }
@@ -25,4 +27,10 @@ function convertToPdf(filePath: string) {
   );
 }
 
-export { convertToPdf, deleteFile };
+function getPdfData(filePath: string) {
+  let dataBuffer = readFileSync(filePath);
+
+  return pdf(dataBuffer);
+}
+
+export { convertToPdf, deleteFile, getPdfData };
