@@ -97,7 +97,8 @@ io.on("connection", (socket) => {
       );
     }
   });
-
+  // TODO: IMPLEMENT DELETING DOCUMENTS
+  // TODO: FRONTEND, COINSLOT MECHANISM
   uploader.on("saved", (e: any) => {
     // implement delete uploaded documents
 
