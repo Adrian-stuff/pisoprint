@@ -75,9 +75,9 @@
     //   e.target.files[0];
     //   console.log(e.target.files);
     // });
-    // $("#print").click(() => {
-    //   fetch("/print", { method: "POST" }).then((res) => res.json()).then(res => console.log(res));
-    // });
+    $("#print").click(() => {
+      fetch("/print", { method: "POST" }).then((res) => res.json()).then(res => console.log(res));
+    });
     // $("#upload").click(() => {
     //   let formData = new FormData();
     //   formData.append("doc-file", docData);

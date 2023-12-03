@@ -18,11 +18,6 @@ const multer_1 = __importDefault(require("@koa/multer"));
 const koa_static_1 = __importDefault(require("koa-static"));
 const koa_session_1 = __importDefault(require("koa-session"));
 const path_1 = __importDefault(require("path"));
-// for windows (testing)
-// dont forget to start Print Spooler service
-// import { getDefaultPrinter, getPrinters, print } from "pdf-to-printer";
-// for linux
-// import { getDefaultPrinter, getPrinters, print } from "unix-print";
 const crypto_1 = __importDefault(require("crypto"));
 const printer_1 = __importDefault(require("./printer"));
 const utils_1 = require("./utils");
@@ -135,6 +130,7 @@ router.post("/upload", upload.single("doc-file"), (ctx) => __awaiter(void 0, voi
     ctx.body = { pdfUrl: `/pdf/${pdf}`, pdfPages: pages, success: true };
 }));
 router.get("/pdf", (ctx) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log(ctx.session);
     yield (0, koa_send_1.default)(ctx, "dist/uploads/" + ctx.session.pdfFile);
 }));
 router.get("/id", (ctx, next) => {

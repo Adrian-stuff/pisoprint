@@ -104,6 +104,7 @@ io.on("connection", (socket) => {
 
     dataMap.set(socket.id, { file: e.file, isPrinted: false });
     const userData = dataMap.get(socket.id);
+    console.log("userData", userData)
     if (userData) {
       convertToPdf(userData.file.pathName)
         .then((pdfPath) => {
@@ -112,8 +113,9 @@ io.on("connection", (socket) => {
               dataMap.set(socket.id, {
                 ...userData,
                 pdfData: data,
-                pdfPath: userData.file.pathName + ".pdf",
+                pdfPath: pdfPath,
               });
+              console.log("done converting", data)
               socket.emit("pdfInfo", data);
             })
             .catch((e: any) => {
@@ -146,9 +148,11 @@ io.on("connection", (socket) => {
       deleteFile(userData.file.pathName).catch((e) =>
         console.log("error deleting", e)
       );
-      deleteFile(userData.file.pathName + ".pdf").catch((e) =>
-        console.log("error deleting", e)
-      );
+      if (userData.pdfPath !== undefined) {
+        deleteFile(userData.pdfPath).catch((e) =>
+          console.log("error deleting", e)
+        );
+      }
     }
   });
 
@@ -158,9 +162,11 @@ io.on("connection", (socket) => {
       deleteFile(userData.file.pathName).catch((e) =>
         console.log("error deleting", e)
       );
-      deleteFile(userData.file.pathName + ".pdf").catch((e) =>
-        console.log("error deleting", e)
-      );
+      if (userData.pdfPath !== undefined) {
+        deleteFile(userData.pdfPath).catch((e) =>
+          console.log("error deleting", e)
+        );
+      }
     }
     dataMap.delete(socket.id);
   });
@@ -177,6 +183,15 @@ app.post("/set-default-printer", async (req, res) => {
   printer.setDefaultPrinter(printer);
   res.json({ success: true });
 });
+
+app.get("/pdf", async (req, res) => {
+  const userData = dataMap.get(socket.id);
+  if (userData) {
+    if (userData.pdfPath !== undefined) {
+
+    res.sendFile(userData.pdfPath)}
+  }
+})
 
 httpServer.listen(3000, () => {
   console.log("listening at 3000");

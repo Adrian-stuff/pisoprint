@@ -51,16 +51,20 @@ io.on("connection", (socket) => {
             (0, utils_1.deleteFile)(userData.file.pathName + ".pdf").catch((e) => console.log("error deleting", e));
         }
     });
+    // TODO: IMPLEMENT DELETING DOCUMENTS
+    // TODO: FRONTEND, COINSLOT MECHANISM
     uploader.on("saved", (e) => {
         // implement delete uploaded documents
         dataMap.set(socket.id, { file: e.file, isPrinted: false });
         const userData = dataMap.get(socket.id);
+        console.log("userData", userData);
         if (userData) {
             (0, utils_1.convertToPdf)(userData.file.pathName)
                 .then((pdfPath) => {
                 (0, utils_1.getPdfData)(pdfPath)
                     .then((data) => {
                     dataMap.set(socket.id, Object.assign(Object.assign({}, userData), { pdfData: data, pdfPath: userData.file.pathName + ".pdf" }));
+                    console.log("done converting", data);
                     socket.emit("pdfInfo", data);
                 })
                     .catch((e) => {

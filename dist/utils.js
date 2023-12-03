@@ -23,15 +23,28 @@ function deleteFile(filePath) {
     });
 }
 exports.deleteFile = deleteFile;
+const UPLOAD_PATH = "/root/projects/pisoprint/dist/uploads";
 function convertToPdf(filePath) {
-    return new Promise((resolve, reject) => (0, child_process_1.exec)(`unoconvert --convert-to pdf ${filePath} ${filePath}.pdf`, (err, stdout, stderr) => {
+    return new Promise((resolve, reject) => (0, child_process_1.exec)(`lowriter --headless --print-to-file --outdir ${UPLOAD_PATH} ${filePath} `, (err, stdout, stderr) => {
         if (err) {
             // node couldn't execute the command
             console.log(err);
             reject(err);
             return;
         }
-        resolve(`${filePath}.pdf`);
+        //resolve(`${filePath}.pdf`);
+        const regex = /->\s([^\s]+\.pdf)\susing/;
+        // Use the exec method to get the matched groups
+        const match = regex.exec(stdout);
+        // Check if there is a match and extract the output path
+        if (match && match[1]) {
+            const outputPath = match[1];
+            resolve(outputPath);
+            console.log('Output Path:', outputPath);
+        }
+        else {
+            console.log('No match found.');
+        }
         // the *entire* stdout and stderr (buffered)
         console.log(`stdout: ${stdout}`);
         console.log(`stderr: ${stderr}`);

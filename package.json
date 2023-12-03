@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/main.js",
   "scripts": {
-    "start": "concurrently \"unoserver\" \"node dist/main.js\"  ",
+    "start": "node dist/main.js ",
     "build": "tsc",
     "devStart": "node dist/main.js",
     "dev": "tsc && concurrently \"tsc -w\" \"nodemon dist/main.js\""

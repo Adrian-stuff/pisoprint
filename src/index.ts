@@ -12,7 +12,7 @@ import { exec } from "child_process";
 // dont forget to start Print Spooler service
 // import { getDefaultPrinter, getPrinters, print } from "pdf-to-printer";
 // for linux
-// import { getDefaultPrinter, getPrinters, print } from "unix-print";
+import { getDefaultPrinter, getPrinters, print } from "unix-print";
 
 import crypto from "crypto";
 import Printer from "./printer";
@@ -143,6 +143,7 @@ router.post("/upload", upload.single("doc-file"), async (ctx) => {
 });
 
 router.get("/pdf", async (ctx) => {
+  console.log(ctx.session)
   await send(ctx, "dist/uploads/" + ctx.session!.pdfFile);
 });
 
