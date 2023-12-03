@@ -2,11 +2,10 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
 import Printer from "./printer";
-import { convertToPdf, deleteFile, getPdfData } from "./utils";
+import { DocumentInfo, convertToPdf, deleteFile, getPdfData } from "./utils";
 import { writeFile } from "fs";
 import express from "express";
 import siofu from "socketio-file-upload";
-import { AnyTxtRecord } from "dns";
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -64,7 +63,7 @@ const dataMap: Map<
   string,
   {
     file: FileType;
-    pdfData?: PdfDataType;
+    pdfData?: DocumentInfo;
     pdfPath?: string;
     isPrinted: boolean;
   }
@@ -79,6 +78,7 @@ io.on("connection", (socket) => {
     console.log("event: ", event);
     const ext = path.extname(event.file.name);
     if (ext === ".docx" || ext === ".doc" || ext === ".pdf") {
+
       callback(true);
     } else {
       callback(false);
@@ -86,15 +86,21 @@ io.on("connection", (socket) => {
   };
 
   uploader.on("start", (e: any) => {
-    const userData = dataMap.get(socket.id);
+    const userData = dataMap.get("file");
     console.log(userData);
     if (userData) {
       deleteFile(userData.file.pathName).catch((e) =>
         console.log("error deleting", e)
       );
-      deleteFile(userData.file.pathName + ".pdf").catch((e) =>
-        console.log("error deleting", e)
-      );
+
+      if (userData.pdfPath !== undefined) {
+
+        deleteFile(userData.pdfPath).catch((e) =>
+          console.log("error deleting", e)
+        );
+
+      }
+      dataMap.delete("file")
     }
   });
   // TODO: IMPLEMENT DELETING DOCUMENTS
@@ -102,29 +108,49 @@ io.on("connection", (socket) => {
   uploader.on("saved", (e: any) => {
     // implement delete uploaded documents
 
-    dataMap.set(socket.id, { file: e.file, isPrinted: false });
-    const userData = dataMap.get(socket.id);
+    dataMap.set("file", { file: e.file, isPrinted: false });
+    // const userData = dataMap.get(socket.id);
+    const userData = dataMap.get("file")
     console.log("userData", userData)
     if (userData) {
-      convertToPdf(userData.file.pathName)
-        .then((pdfPath) => {
-          getPdfData(pdfPath)
-            .then((data: PdfDataType) => {
-              dataMap.set(socket.id, {
-                ...userData,
-                pdfData: data,
-                pdfPath: pdfPath,
+      const ext = path.extname(userData.file.name)
+      if (ext !== ".pdf") {
+        convertToPdf(userData.file.pathName)
+          .then((pdfPath) => {
+            getPdfData(pdfPath)
+              .then((data) => {
+                dataMap.set("file", {
+                  ...userData,
+                  pdfData: data,
+                  pdfPath: pdfPath,
+                });
+                console.log("done converting", data)
+                socket.emit("pdfInfo", data);
+              })
+              .catch((e: any) => {
+                console.log("pdfData error:", e);
               });
-              console.log("done converting", data)
-              socket.emit("pdfInfo", data);
-            })
-            .catch((e: any) => {
-              console.log("pdfData error:", e);
-            });
+          })
+          // /home/adrian/Projects/pisoprint/dist/uploads/1663650329404.docx.pdf
+          .catch((e) => {
+            console.log("convert error: ", e);
+          });
+        return
+      }
+      // else just continue no need to convert pdf
+      // TODO: ADD PREVIEW FEATURE TO PREVIEW WHAT TO BE PRINT maybe not because this does have page options
+      getPdfData(userData.file.pathName)
+        .then((data) => {
+          dataMap.set("file", {
+            ...userData,
+            pdfData: data,
+            pdfPath: userData.file.pathName,
+          });
+          // TODO: make the print option fit to page if the page size is unknown
+          socket.emit("pdfInfo", data);
         })
-        // /home/adrian/Projects/pisoprint/dist/uploads/1663650329404.docx.pdf
-        .catch((e) => {
-          console.log("convert error: ", e);
+        .catch((e: any) => {
+          console.log("pdfData error:", e);
         });
     }
 
@@ -138,37 +164,45 @@ io.on("connection", (socket) => {
   uploader.dir = pathUploads;
   uploader.listen(socket);
 
+  // TODO: coin slot
   socket.on("print", (e, cb) => {
     socket.emit("waitingForCoins");
     // implement inserting coins
-
-    const userData = dataMap.get(socket.id);
+    const userData = dataMap.get("file");
+    printer.setDefaultPrinter("PDF")
     console.log(userData);
     if (userData) {
-      deleteFile(userData.file.pathName).catch((e) =>
-        console.log("error deleting", e)
-      );
+
       if (userData.pdfPath !== undefined) {
-        deleteFile(userData.pdfPath).catch((e) =>
-          console.log("error deleting", e)
-        );
+        const pathPDF = userData?.pdfPath
+
+        printer.print(pathPDF,).then(val => {
+          console.log("done printing")
+          deleteFile(userData.file.pathName).catch((e) =>
+            console.log("error deleting", e)
+          );
+          deleteFile(pathPDF).catch((e) =>
+            console.log("error deleting", e)
+          );
+          dataMap.delete("file")
+        }).catch(e => console.log("error printing", e))
       }
     }
   });
 
   socket.on("disconnect", () => {
-    const userData = dataMap.get(socket.id);
-    if (userData) {
-      deleteFile(userData.file.pathName).catch((e) =>
-        console.log("error deleting", e)
-      );
-      if (userData.pdfPath !== undefined) {
-        deleteFile(userData.pdfPath).catch((e) =>
-          console.log("error deleting", e)
-        );
-      }
-    }
-    dataMap.delete(socket.id);
+    // const userData = dataMap.get("file");
+    // if (userData) {
+    //   deleteFile(userData.file.pathName).catch((e) =>
+    //     console.log("error deleting", e)
+    //   );
+    //   if (userData.pdfPath !== undefined) {
+    //     deleteFile(userData.pdfPath).catch((e) =>
+    //       console.log("error deleting", e)
+    //     );
+    //   }
+    // }
+    // dataMap.delete("file");
   });
 });
 
@@ -184,12 +218,22 @@ app.post("/set-default-printer", async (req, res) => {
   res.json({ success: true });
 });
 
+app.post("/print", async (req, res) => {
+  const userData = dataMap.get("file");
+  if (userData) {
+    if (userData.pdfPath !== undefined) {
+      printer.print(userData.pdfPath)
+    }
+  }
+})
+
 app.get("/pdf", async (req, res) => {
-  const userData = dataMap.get(socket.id);
+  const userData = dataMap.get("file");
   if (userData) {
     if (userData.pdfPath !== undefined) {
 
-    res.sendFile(userData.pdfPath)}
+      res.sendFile(userData.pdfPath)
+    }
   }
 })
 
